@@ -43,7 +43,7 @@ jobs:
 
       - name: Verify required ML artifacts
         run: |
-          test -f student_result_model_missing.pkl
+          test -f student_result_model.pkl
           test -f metrics.json
           test -f student_results.csv
 
@@ -52,7 +52,7 @@ jobs:
         with:
           name: student-result-ml-artifacts
           path: |
-            student_result_model_missing.pkl
+            student_result_model.pkl
             metrics.json
             student_results.csv
           if-no-files-found: error
