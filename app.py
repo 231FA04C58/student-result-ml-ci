@@ -1,4 +1,5 @@
 
+import os
 from pathlib import Path
 
 import joblib
@@ -8,6 +9,7 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 
 MODEL_PATH = Path("student_result_model.pkl")
+
 FEATURES = [
     "attendance",
     "internal_marks",
@@ -22,6 +24,7 @@ def load_model():
             "student_result_model.pkl was not found. "
             "Run the training pipeline first."
         )
+
     return joblib.load(MODEL_PATH)
 
 
@@ -37,9 +40,9 @@ def health_check():
 def predict():
     data = request.get_json(silent=True)
 
-    if not data:
+    if not isinstance(data, dict):
         return jsonify({
-            "error": "JSON request body is required"
+            "error": "A valid JSON request body is required"
         }), 400
 
     missing_fields = [
@@ -53,20 +56,31 @@ def predict():
             "missing_fields": missing_fields
         }), 400
 
-    sample = pd.DataFrame([{
-        feature: data[feature]
-        for feature in FEATURES
-    }])
+    try:
+        sample = pd.DataFrame([{
+            feature: data[feature]
+            for feature in FEATURES
+        }])
 
-    model = load_model()
-    prediction_code = int(model.predict(sample)[0])
-    prediction = "PASS" if prediction_code == 1 else "FAIL"
+        model = load_model()
+        prediction_code = int(model.predict(sample)[0])
+        prediction = "PASS" if prediction_code == 1 else "FAIL"
 
-    return jsonify({
-        "prediction": prediction,
-        "prediction_code": prediction_code
-    })
+        return jsonify({
+            "prediction": prediction,
+            "prediction_code": prediction_code
+        })
+
+    except FileNotFoundError as error:
+        return jsonify({"error": str(error)}), 500
+
+    except Exception:
+        app.logger.exception("Prediction failed")
+        return jsonify({
+            "error": "Prediction failed. Check the server logs."
+        }), 500
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
