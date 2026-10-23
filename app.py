@@ -172,6 +172,12 @@ def predict():
         if hasattr(prediction, "item"):
             prediction = prediction.item()
 
+        # Convert binary model predictions to readable labels
+        if prediction == 1:
+            prediction = "PASS"
+        elif prediction == 0:
+            prediction = "FAIL"
+
         return jsonify({
             "service": "student-result-prediction",
             "prediction": prediction,
