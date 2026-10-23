@@ -5,8 +5,16 @@ from pathlib import Path
 import joblib
 import pandas as pd
 from flask import Flask, jsonify, request
+from flasgger import Swagger
 
 app = Flask(__name__)
+
+app.config["SWAGGER"] = {
+    "title": "Student Result Prediction API",
+    "uiversion": 3
+}
+
+swagger = Swagger(app)
 
 MODEL_PATH = Path("student_result_model.pkl")
 
@@ -30,6 +38,15 @@ def load_model():
 
 @app.get("/")
 def health_check():
+    """
+    Check API status
+    ---
+    tags:
+      - Health
+    responses:
+      200:
+        description: API is running successfully
+    """
     return jsonify({
         "status": "ok",
         "service": "student-result-prediction"
@@ -38,6 +55,45 @@ def health_check():
 
 @app.post("/predict")
 def predict():
+    """
+    Predict student result
+    ---
+    tags:
+      - Prediction
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - attendance
+            - internal_marks
+            - assignment_marks
+            - previous_score
+          properties:
+            attendance:
+              type: number
+              example: 85
+            internal_marks:
+              type: number
+              example: 80
+            assignment_marks:
+              type: number
+              example: 90
+            previous_score:
+              type: number
+              example: 75
+    responses:
+      200:
+        description: Prediction returned successfully
+      400:
+        description: Invalid JSON or missing fields
+      500:
+        description: Prediction failed or model file is missing
+    """
     data = request.get_json(silent=True)
 
     if not isinstance(data, dict):
