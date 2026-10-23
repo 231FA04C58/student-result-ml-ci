@@ -7,6 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --default-timeout=300 --retries 10 -r requirements.txt
 
 COPY app.py .
+COPY student_result_model.pkl .
 
 EXPOSE 5000
 
