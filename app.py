@@ -4,14 +4,12 @@ import os
 
 import joblib
 import pandas as pd
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request
 from flasgger import Swagger
 
 app = Flask(__name__)
 
-# --------------------------------------------------
-# Swagger API documentation
-# --------------------------------------------------
+# -------------------- SWAGGER CONFIGURATION --------------------
 
 app.config["SWAGGER"] = {
     "title": "Student Result Prediction API",
@@ -19,7 +17,7 @@ app.config["SWAGGER"] = {
     "description": (
         "Predict student results using attendance, internal marks, "
         "assignment marks, and previous scores."
-    )
+    ),
 }
 
 swagger = Swagger(
@@ -28,8 +26,8 @@ swagger = Swagger(
         "headers": [],
         "specs": [
             {
-                "endpoint": "apispec",
-                "route": "/apispec.json",
+                "endpoint": "apispec_1",
+                "route": "/apispec_1.json",
                 "rule_filter": lambda rule: True,
                 "model_filter": lambda tag: True,
             }
@@ -37,27 +35,31 @@ swagger = Swagger(
         "static_url_path": "/flasgger_static",
         "swagger_ui": True,
         "specs_route": "/docs/",
-    }
+    },
 )
 
-MODEL_PATH = Path(__file__).resolve().parent / "student_result_model.pkl"
+# -------------------- MODEL CONFIGURATION --------------------
+
+MODEL_PATH = (
+    Path(__file__).resolve().parent / "student_result_model.pkl"
+)
 
 FEATURES = [
     "attendance",
     "internal_marks",
     "assignment_marks",
-    "previous_score"
+    "previous_score",
 ]
 
-
-# --------------------------------------------------
-# Customize Swagger UI in this same Python file
-# --------------------------------------------------
+# -------------------- SWAGGER UI CUSTOMIZATION --------------------
 
 @app.after_request
 def customize_swagger(response):
     if request.path.rstrip("/") == "/docs":
-        if response.content_type and "text/html" in response.content_type:
+        if (
+            response.content_type
+            and "text/html" in response.content_type
+        ):
             html = response.get_data(as_text=True)
 
             custom_css = """
@@ -86,15 +88,15 @@ def customize_swagger(response):
             </style>
             """
 
-            html = html.replace("</head>", custom_css + "</head>")
+            html = html.replace(
+                "</head>",
+                custom_css + "</head>",
+            )
             response.set_data(html)
 
     return response
 
-
-# --------------------------------------------------
-# Load trained model
-# --------------------------------------------------
+# -------------------- LOAD MODEL --------------------
 
 def load_model():
     if not MODEL_PATH.exists():
@@ -105,10 +107,7 @@ def load_model():
 
     return joblib.load(MODEL_PATH)
 
-
-# --------------------------------------------------
-# GET / - Service status
-# --------------------------------------------------
+# -------------------- HOME / SERVICE STATUS --------------------
 
 @app.route("/", methods=["GET"])
 def health_check():
@@ -123,13 +122,10 @@ def health_check():
     """
     return jsonify({
         "status": "ok",
-        "service": "student-result-prediction"
+        "service": "student-result-prediction",
     }), 200
 
-
-# --------------------------------------------------
-# GET /health - Health check
-# --------------------------------------------------
+# -------------------- HEALTH CHECK --------------------
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -144,13 +140,10 @@ def health():
     """
     return jsonify({
         "status": "ok",
-        "service": "student-result-prediction"
+        "service": "student-result-prediction",
     }), 200
 
-
-# --------------------------------------------------
-# POST /predict - Student result prediction
-# --------------------------------------------------
+# -------------------- PREDICT STUDENT RESULT --------------------
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -202,12 +195,16 @@ def predict():
             "error": "Request body must be valid JSON."
         }), 400
 
-    missing = [feature for feature in FEATURES if feature not in data]
+    missing = [
+        feature
+        for feature in FEATURES
+        if feature not in data
+    ]
 
     if missing:
         return jsonify({
             "error": "Missing required fields.",
-            "missing_fields": missing
+            "missing_fields": missing,
         }), 400
 
     try:
@@ -227,7 +224,12 @@ def predict():
 
     try:
         model = load_model()
-        input_data = pd.DataFrame([values], columns=FEATURES)
+
+        input_data = pd.DataFrame(
+            [values],
+            columns=FEATURES,
+        )
+
         prediction = model.predict(input_data)[0]
 
         if hasattr(prediction, "item"):
@@ -241,22 +243,22 @@ def predict():
         return jsonify({
             "service": "student-result-prediction",
             "prediction": prediction,
-            "input": values
+            "input": values,
         }), 200
 
     except FileNotFoundError as error:
-        return jsonify({"error": str(error)}), 500
+        return jsonify({
+            "error": str(error)
+        }), 500
 
     except Exception:
         app.logger.exception("Prediction failed")
+
         return jsonify({
             "error": "Prediction failed. Check application logs."
         }), 500
 
-
-# --------------------------------------------------
-# Run application
-# --------------------------------------------------
+# -------------------- RUN APPLICATION --------------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
