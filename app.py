@@ -1,18 +1,25 @@
 
 from pathlib import Path
+import os
 
 import joblib
 import pandas as pd
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, make_response
 from flasgger import Swagger
 
 app = Flask(__name__)
 
-# Swagger documentation configuration
+# --------------------------------------------------
+# Swagger API documentation
+# --------------------------------------------------
+
 app.config["SWAGGER"] = {
     "title": "Student Result Prediction API",
     "uiversion": 3,
-    "openapi": "3.0.0"
+    "description": (
+        "Predict student results using attendance, internal marks, "
+        "assignment marks, and previous scores."
+    )
 }
 
 swagger = Swagger(
@@ -29,11 +36,11 @@ swagger = Swagger(
         ],
         "static_url_path": "/flasgger_static",
         "swagger_ui": True,
-        "specs_route": "/docs/"
+        "specs_route": "/docs/",
     }
 )
 
-MODEL_PATH = Path("student_result_model.pkl")
+MODEL_PATH = Path(__file__).resolve().parent / "student_result_model.pkl"
 
 FEATURES = [
     "attendance",
@@ -43,21 +50,70 @@ FEATURES = [
 ]
 
 
+# --------------------------------------------------
+# Customize Swagger UI in this same Python file
+# --------------------------------------------------
+
+@app.after_request
+def customize_swagger(response):
+    if request.path.rstrip("/") == "/docs":
+        if response.content_type and "text/html" in response.content_type:
+            html = response.get_data(as_text=True)
+
+            custom_css = """
+            <style>
+                .swagger-ui .topbar {
+                    display: none !important;
+                }
+
+                .swagger-ui .info {
+                    margin: 30px 0;
+                }
+
+                .swagger-ui .info .title {
+                    font-size: 32px;
+                    font-weight: 700;
+                }
+
+                .swagger-ui .opblock-tag {
+                    font-size: 20px;
+                    font-weight: 600;
+                }
+
+                .swagger-ui .opblock {
+                    border-radius: 4px;
+                }
+            </style>
+            """
+
+            html = html.replace("</head>", custom_css + "</head>")
+            response.set_data(html)
+
+    return response
+
+
+# --------------------------------------------------
+# Load trained model
+# --------------------------------------------------
+
 def load_model():
-    """Load the trained prediction model."""
     if not MODEL_PATH.exists():
         raise FileNotFoundError(
-            "student_result_model.pkl was not found. "
+            "student_result_model.pkl is missing. "
             "Run train_model.py before starting the application."
         )
 
     return joblib.load(MODEL_PATH)
 
 
+# --------------------------------------------------
+# GET / - Service status
+# --------------------------------------------------
+
 @app.route("/", methods=["GET"])
 def health_check():
     """
-    Check service status.
+    Service status.
     ---
     tags:
       - Health
@@ -71,10 +127,14 @@ def health_check():
     }), 200
 
 
+# --------------------------------------------------
+# GET /health - Health check
+# --------------------------------------------------
+
 @app.route("/health", methods=["GET"])
 def health():
     """
-    Check API health.
+    Health check.
     ---
     tags:
       - Health
@@ -88,10 +148,14 @@ def health():
     }), 200
 
 
+# --------------------------------------------------
+# POST /predict - Student result prediction
+# --------------------------------------------------
+
 @app.route("/predict", methods=["POST"])
 def predict():
     """
-    Predict student performance.
+    Predict student result (PASS/FAIL).
     ---
     tags:
       - Prediction
@@ -127,7 +191,7 @@ def predict():
       200:
         description: Prediction successful
       400:
-        description: Invalid input
+        description: Invalid request
       500:
         description: Prediction failed
     """
@@ -138,10 +202,7 @@ def predict():
             "error": "Request body must be valid JSON."
         }), 400
 
-    missing = [
-        feature for feature in FEATURES
-        if feature not in data
-    ]
+    missing = [feature for feature in FEATURES if feature not in data]
 
     if missing:
         return jsonify({
@@ -172,7 +233,6 @@ def predict():
         if hasattr(prediction, "item"):
             prediction = prediction.item()
 
-        # Convert binary model predictions to readable labels
         if prediction == 1:
             prediction = "PASS"
         elif prediction == 0:
@@ -194,5 +254,10 @@ def predict():
         }), 500
 
 
+# --------------------------------------------------
+# Run application
+# --------------------------------------------------
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
