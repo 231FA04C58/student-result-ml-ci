@@ -1,0 +1,22 @@
+{
+    "drift_detected": true,
+    "p_value_threshold": 0.05,
+    "features": {
+        "attendance": {
+            "p_value": 0.0,
+            "drift_detected": true
+        },
+        "internal_marks": {
+            "p_value": 1.0,
+            "drift_detected": false
+        },
+        "assignment_marks": {
+            "p_value": 1.0,
+            "drift_detected": false
+        },
+        "previous_score": {
+            "p_value": 1.0,
+            "drift_detected": false
+        }
+    }
+}
